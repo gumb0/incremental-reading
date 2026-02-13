@@ -1,0 +1,21 @@
+{
+  "name": "incremental-reading",
+  "version": "0.1.0",
+  "description": "Obsidian incremental reading plugin",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "obsidian": "latest",
+    "rollup": "^4.34.8",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.3"
+  }
+}

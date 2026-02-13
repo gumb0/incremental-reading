@@ -1,0 +1,11 @@
+{
+  "id": "incremental-reading",
+  "name": "Incremental Reading",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Incremental reading/writing for Obsidian with mobile-first support.",
+  "author": "Andrei Maiboroda",
+  "authorUrl": "https://github.com/gumb0",
+  "isDesktopOnly": false,
+  "main": "main.js"
+}
