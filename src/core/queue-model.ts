@@ -203,7 +203,7 @@ export function isQueueState(value: unknown): value is QueueState {
     return false;
   }
 
-  if (typeof value.schemaVersion !== "number") {
+  if (value.schemaVersion !== QUEUE_SCHEMA_VERSION) {
     return false;
   }
 

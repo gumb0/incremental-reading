@@ -47,3 +47,10 @@ test("isQueueState accepts valid state and rejects invalid shape", () => {
 
   assert.equal(isQueueState(invalid), false);
 });
+
+test("isQueueState rejects unsupported schema versions", () => {
+  const state = createQueueState("Versioned Queue");
+  state.schemaVersion = QUEUE_SCHEMA_VERSION + 1;
+
+  assert.equal(isQueueState(state), false);
+});
