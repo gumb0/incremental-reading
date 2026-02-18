@@ -4,17 +4,41 @@ An Obsidian plugin for incremental reading/writing with mobile-first support.
 
 ## Status
 
-Early development.
+MVP baseline implemented.
 
-## Planned MVP
+## Implemented MVP Features
 
-- Load and create queues
-- Next/current/dismiss repetition
-- Add note/block to queue
-- Context menu add file
-- Queue indicator (status bar or panel)
-- Simple scheduler
+- Create queue
+- Load queue
+- Open current repetition
+- Next repetition (simple scheduler rotation)
+- Dismiss current repetition
+- Add current note to queue
+- Add current block to queue
+- Add file to queue from file context menu
+- Queue indicator (desktop status bar + status modal/panel)
 - Persist cursor and scroll position per queue item
+
+## Commands
+
+- `Incremental Reading: Create queue`
+- `Incremental Reading: Load queue`
+- `Incremental Reading: Open current repetition`
+- `Incremental Reading: Next repetition`
+- `Incremental Reading: Dismiss current repetition`
+- `Incremental Reading: Add current note to queue`
+- `Incremental Reading: Add current block to queue`
+- `Incremental Reading: Show queue status`
+
+## Development
+
+```bash
+npm run check
+npm run test
+npm run build
+```
+
+Manual QA checklist: `docs/QA_CHECKLIST.md`
 
 ## License
 
