@@ -1,5 +1,6 @@
 node_modules/
 main.js
 main.js.map
+.test-dist/
 *.log
 .DS_Store

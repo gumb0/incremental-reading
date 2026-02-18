@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rollup -c",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:compile": "rm -rf .test-dist && tsc -p tsconfig.test.json",
+    "test:run": "node --require ./tests/shims/register-obsidian-shim.cjs --test tests/*.test.cjs",
+    "test": "npm run test:compile && npm run test:run"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
