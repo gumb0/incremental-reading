@@ -15,6 +15,7 @@ import {
 } from "../core/queue-model";
 
 const QUEUE_FILE_EXTENSION = ".irqueue.json";
+export { QUEUE_FILE_EXTENSION };
 
 export class QueueStore {
   private readonly app: App;
@@ -43,6 +44,33 @@ export class QueueStore {
   async queueExists(queueNameOrPath: string): Promise<boolean> {
     const queuePath = this.resolveQueuePath(queueNameOrPath);
     return this.getFile(queuePath) instanceof TFile;
+  }
+
+  listQueuePaths(): string[] {
+    const queueFolder = normalizePath(this.getQueueFolderPath());
+
+    return this.app.vault
+      .getAllLoadedFiles()
+      .filter((file): file is TFile => file instanceof TFile)
+      .filter((file) => file.path.endsWith(QUEUE_FILE_EXTENSION))
+      .filter(
+        (file) =>
+          file.path === queueFolder || file.path.startsWith(`${queueFolder}/`)
+      )
+      .map((file) => normalizePath(file.path))
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  getQueueDisplayName(queuePath: string): string {
+    const normalizedQueuePath = normalizePath(queuePath);
+    const queueFolder = normalizePath(this.getQueueFolderPath());
+    const relative = normalizedQueuePath.startsWith(`${queueFolder}/`)
+      ? normalizedQueuePath.slice(queueFolder.length + 1)
+      : normalizedQueuePath;
+
+    return relative.endsWith(QUEUE_FILE_EXTENSION)
+      ? relative.slice(0, -QUEUE_FILE_EXTENSION.length)
+      : relative;
   }
 
   async createQueue(
