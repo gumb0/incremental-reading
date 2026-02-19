@@ -19,6 +19,13 @@ MVP baseline implemented.
 - Queue indicator (desktop status bar + status modal/panel)
 - Persist cursor and scroll position per queue item
 
+## Queue Storage
+
+Queues are stored as markdown files in your vault under the configured queue folder.
+Default path:
+
+- `IncrementalReading/default.irqueue.md`
+
 ## Commands
 
 - `Incremental Reading: Create queue`

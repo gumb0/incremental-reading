@@ -2,10 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { QueueStore } = require("../.test-dist/src/services/queue-store.js");
-const {
-  createNoteQueueItem,
-  createQueueState
-} = require("../.test-dist/src/core/queue-model.js");
+const { createNoteQueueItem } = require("../.test-dist/src/core/queue-model.js");
 const {
   TFile,
   TFolder,
@@ -17,6 +14,9 @@ function createMockApp() {
   const files = new Map();
 
   const vault = {
+    getAllLoadedFiles() {
+      return Array.from(files.values()).map((entry) => entry.node);
+    },
     getAbstractFileByPath(path) {
       const entry = files.get(path);
       return entry ? entry.node : null;
@@ -80,20 +80,20 @@ test("QueueStore create/load/save/delete roundtrip", async () => {
   assert.ok(__getNotices().some((n) => n.includes("not found")));
 });
 
-test("QueueStore reports invalid JSON queue file", async () => {
+test("QueueStore reports invalid queue markdown format", async () => {
   __resetNotices();
   const { app, files } = createMockApp();
   const store = new QueueStore(app, () => "Queues");
 
-  files.set("Queues/Broken.irqueue.json", {
+  files.set("Queues/Broken.irqueue.md", {
     type: "file",
-    node: new TFile("Queues/Broken.irqueue.json"),
-    data: "{invalid-json"
+    node: new TFile("Queues/Broken.irqueue.md"),
+    data: "not a fenced json block"
   });
 
   const loaded = await store.loadQueue("Broken");
   assert.equal(loaded, null);
-  assert.ok(__getNotices().some((n) => n.includes("not valid JSON")));
+  assert.ok(__getNotices().some((n) => n.includes("invalid format")));
 });
 
 test("QueueStore add/update/remove item lifecycle", async () => {

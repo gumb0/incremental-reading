@@ -23,6 +23,6 @@
 
 ## Data Integrity
 
-- [ ] Queue JSON remains valid after repeated next/dismiss actions.
+- [ ] Queue markdown file (`*.irqueue.md`) remains valid after repeated next/dismiss actions.
 - [ ] Invalid schema/version queue file is rejected with notice.
 - [ ] Missing queue files are handled with notice.

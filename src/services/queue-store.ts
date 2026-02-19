@@ -14,7 +14,8 @@ import {
   QueueState
 } from "../core/queue-model";
 
-const QUEUE_FILE_EXTENSION = ".irqueue.json";
+const QUEUE_FILE_EXTENSION = ".irqueue.md";
+
 export { QUEUE_FILE_EXTENSION };
 
 export class QueueStore {
@@ -94,7 +95,7 @@ export class QueueStore {
 
     const queueName = this.getQueueNameFromPath(queuePath);
     const state = createQueueState(queueName, scheduler);
-    const serialized = JSON.stringify(state, null, 2);
+    const serialized = this.serializeQueue(state);
 
     await this.app.vault.create(queuePath, serialized);
     return state;
@@ -117,20 +118,7 @@ export class QueueStore {
       return null;
     }
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      new Notice(`Queue file is not valid JSON: ${queuePath}`);
-      return null;
-    }
-
-    if (!isQueueState(parsed)) {
-      new Notice(`Queue file has invalid schema: ${queuePath}`);
-      return null;
-    }
-
-    return parsed;
+    return this.parseQueueState(raw, queuePath);
   }
 
   async saveQueue(
@@ -138,9 +126,10 @@ export class QueueStore {
     state: QueueState
   ): Promise<boolean> {
     const queuePath = this.resolveQueuePath(queueNameOrPath);
+
     await this.ensureParentFolders(queuePath);
 
-    const serialized = JSON.stringify(state, null, 2);
+    const serialized = this.serializeQueue(state);
     const existing = this.getFile(queuePath);
 
     if (existing instanceof TFile) {
@@ -254,6 +243,45 @@ export class QueueStore {
     }
 
     return fileName;
+  }
+
+  private serializeQueue(state: QueueState): string {
+    return [
+      `# Incremental Reading Queue: ${state.metadata.name}`,
+      "",
+      "```json",
+      JSON.stringify(state, null, 2),
+      "```",
+      ""
+    ].join("\n");
+  }
+
+  private parseQueueState(raw: string, queuePath: string): QueueState | null {
+    const trimmed = raw.trim();
+    const blockMatch = trimmed.match(/```json\s*([\s\S]*?)```/m);
+    if (!blockMatch || !blockMatch[1]) {
+      new Notice(`Queue file has invalid format: ${queuePath}`);
+      return null;
+    }
+
+    return this.parseQueueJson(blockMatch[1].trim(), queuePath);
+  }
+
+  private parseQueueJson(rawJson: string, queuePath: string): QueueState | null {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch {
+      new Notice(`Queue file is not valid JSON: ${queuePath}`);
+      return null;
+    }
+
+    if (!isQueueState(parsed)) {
+      new Notice(`Queue file has invalid schema: ${queuePath}`);
+      return null;
+    }
+
+    return parsed;
   }
 
   private async ensureParentFolders(filePath: string): Promise<void> {
