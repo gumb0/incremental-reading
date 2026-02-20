@@ -54,12 +54,13 @@ function createMockApp() {
 
 test("QueueStore create/load/save/delete roundtrip", async () => {
   __resetNotices();
-  const { app } = createMockApp();
+  const { app, files } = createMockApp();
   const store = new QueueStore(app, () => "Queues");
 
   const created = await store.createQueue("Daily");
   assert.ok(created);
   assert.equal(created.metadata.name, "Daily");
+  assert.ok(files.get("Queues/Daily.irqueue.md").data.includes("| id | type | target |"));
 
   const loaded = await store.loadQueue("Daily");
   assert.ok(loaded);
@@ -71,6 +72,8 @@ test("QueueStore create/load/save/delete roundtrip", async () => {
 
   const loadedAgain = await store.loadQueue("Daily");
   assert.equal(loadedAgain.items.length, 1);
+  assert.equal(loadedAgain.items[0].type, "note");
+  assert.equal(loadedAgain.items[0].filePath, "notes/today.md");
 
   const removed = await store.deleteQueue("Daily");
   assert.equal(removed, true);
@@ -88,12 +91,12 @@ test("QueueStore reports invalid queue markdown format", async () => {
   files.set("Queues/Broken.irqueue.md", {
     type: "file",
     node: new TFile("Queues/Broken.irqueue.md"),
-    data: "not a fenced json block"
+    data: "not a markdown queue"
   });
 
   const loaded = await store.loadQueue("Broken");
   assert.equal(loaded, null);
-  assert.ok(__getNotices().some((n) => n.includes("invalid format")));
+  assert.ok(__getNotices().some((n) => n.includes("invalid schema") || n.includes("invalid format")));
 });
 
 test("QueueStore add/update/remove item lifecycle", async () => {
@@ -121,4 +124,20 @@ test("QueueStore add/update/remove item lifecycle", async () => {
   const afterRemove = await store.removeItem("Work", item.id);
   assert.ok(afterRemove);
   assert.equal(afterRemove.items.length, 0);
+});
+
+test("QueueStore parses escaped pipes in table cells", async () => {
+  __resetNotices();
+  const { app } = createMockApp();
+  const store = new QueueStore(app, () => "Queues");
+
+  await store.createQueue("Escaped");
+  const item = createNoteQueueItem("notes/with|pipe.md");
+  await store.addItem("Escaped", item);
+
+  const loaded = await store.loadQueue("Escaped");
+  assert.ok(loaded);
+  assert.equal(loaded.items.length, 1);
+  assert.equal(loaded.items[0].type, "note");
+  assert.equal(loaded.items[0].filePath, "notes/with|pipe.md");
 });

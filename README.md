@@ -21,7 +21,7 @@ MVP baseline implemented.
 
 ## Queue Storage
 
-Queues are stored as markdown files in your vault under the configured queue folder.
+Queues are stored as markdown files in your vault under the configured queue folder, using YAML frontmatter plus a markdown table for items (manual-edit friendly).
 Default path:
 
 - `IncrementalReading/default.irqueue.md`

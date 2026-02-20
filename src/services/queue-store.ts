@@ -11,10 +11,24 @@ import {
   isQueueState,
   QueueItem,
   QueueSchedulerConfig,
-  QueueState
+  QueueState,
+  QUEUE_SCHEMA_VERSION
 } from "../core/queue-model";
 
 const QUEUE_FILE_EXTENSION = ".irqueue.md";
+
+const TABLE_HEADERS = [
+  "id",
+  "type",
+  "target",
+  "cursorLine",
+  "cursorCh",
+  "scrollTop",
+  "createdAt",
+  "updatedAt"
+] as const;
+
+type TableHeader = (typeof TABLE_HEADERS)[number];
 
 export { QUEUE_FILE_EXTENSION };
 
@@ -246,42 +260,301 @@ export class QueueStore {
   }
 
   private serializeQueue(state: QueueState): string {
-    return [
-      `# Incremental Reading Queue: ${state.metadata.name}`,
-      "",
-      "```json",
-      JSON.stringify(state, null, 2),
-      "```",
-      ""
-    ].join("\n");
+    const metadata = state.metadata;
+    const frontmatter = [
+      "---",
+      `schemaVersion: ${state.schemaVersion}`,
+      `id: ${metadata.id}`,
+      `name: ${this.escapeFrontmatterValue(metadata.name)}`,
+      `scheduler: ${metadata.scheduler.kind}`,
+      `createdAt: ${metadata.createdAt}`,
+      `updatedAt: ${metadata.updatedAt}`,
+      "---"
+    ];
+
+    const header = `| ${TABLE_HEADERS.join(" | ")} |`;
+    const separator =
+      "| --- | --- | --- | ---: | ---: | ---: | --- | --- |";
+
+    const rows = state.items.map((item) => {
+      const target =
+        item.type === "block"
+          ? `${item.filePath}#^${item.blockId}`
+          : item.filePath;
+
+      const cursorLine = item.readingPosition.cursor?.line;
+      const cursorCh = item.readingPosition.cursor?.ch;
+      const scrollTop = item.readingPosition.scrollTop;
+
+      return `| ${this.escapeCell(item.id)} | ${item.type} | ${this.escapeCell(
+        target
+      )} | ${this.toCell(cursorLine)} | ${this.toCell(cursorCh)} | ${this.toCell(
+        scrollTop
+      )} | ${this.escapeCell(item.createdAt)} | ${this.escapeCell(
+        item.updatedAt
+      )} |`;
+    });
+
+    return [...frontmatter, "", header, separator, ...rows, ""].join("\n");
   }
 
   private parseQueueState(raw: string, queuePath: string): QueueState | null {
-    const trimmed = raw.trim();
-    const blockMatch = trimmed.match(/```json\s*([\s\S]*?)```/m);
-    if (!blockMatch || !blockMatch[1]) {
+    const base = createQueueState(this.getQueueNameFromPath(queuePath));
+    const frontmatter = this.parseFrontmatter(raw);
+
+    if (frontmatter.schemaVersion != null) {
+      base.schemaVersion = frontmatter.schemaVersion;
+    }
+
+    base.metadata = {
+      id: frontmatter.id ?? base.metadata.id,
+      name: frontmatter.name ?? base.metadata.name,
+      scheduler: {
+        kind: frontmatter.scheduler === "simple" ? "simple" : base.metadata.scheduler.kind
+      },
+      createdAt: frontmatter.createdAt ?? base.metadata.createdAt,
+      updatedAt: frontmatter.updatedAt ?? base.metadata.updatedAt
+    };
+
+    const parsedItems = this.parseItemsFromTable(raw);
+    if (parsedItems === null) {
       new Notice(`Queue file has invalid format: ${queuePath}`);
       return null;
     }
+    base.items = parsedItems;
 
-    return this.parseQueueJson(blockMatch[1].trim(), queuePath);
-  }
-
-  private parseQueueJson(rawJson: string, queuePath: string): QueueState | null {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawJson);
-    } catch {
-      new Notice(`Queue file is not valid JSON: ${queuePath}`);
-      return null;
-    }
-
-    if (!isQueueState(parsed)) {
+    if (!isQueueState(base)) {
       new Notice(`Queue file has invalid schema: ${queuePath}`);
       return null;
     }
 
-    return parsed;
+    return base;
+  }
+
+  private parseFrontmatter(raw: string): {
+    schemaVersion?: number;
+    id?: string;
+    name?: string;
+    scheduler?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  } {
+    const match = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!match || !match[1]) {
+      return {};
+    }
+
+    const result: Record<string, string> = {};
+    for (const line of match[1].split(/\r?\n/)) {
+      const idx = line.indexOf(":");
+      if (idx <= 0) {
+        continue;
+      }
+
+      const key = line.slice(0, idx).trim();
+      const value = line.slice(idx + 1).trim();
+      if (!key) {
+        continue;
+      }
+
+      result[key] = this.unquoteFrontmatterValue(value);
+    }
+
+    const schemaVersionRaw = Number(result.schemaVersion);
+
+    return {
+      schemaVersion: Number.isInteger(schemaVersionRaw)
+        ? schemaVersionRaw
+        : QUEUE_SCHEMA_VERSION,
+      id: result.id,
+      name: result.name,
+      scheduler: result.scheduler,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt
+    };
+  }
+
+  private parseItemsFromTable(raw: string): QueueItem[] | null {
+    const lines = raw.split(/\r?\n/);
+    const tableLines = lines
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("|"));
+
+    if (tableLines.length < 2) {
+      return null;
+    }
+
+    const headers = this.parseTableRow(tableLines[0]).map((x) => x.trim());
+    const headerIndex = this.mapHeaderIndex(headers);
+
+    if (headerIndex.type == null || headerIndex.target == null) {
+      return null;
+    }
+
+    const items: QueueItem[] = [];
+    const dataLines = tableLines.slice(2);
+
+    for (const line of dataLines) {
+      if (!line || line === "|") {
+        continue;
+      }
+
+      const cells = this.parseTableRow(line);
+      const get = (name: TableHeader): string => {
+        const idx = headerIndex[name];
+        if (idx == null || idx >= cells.length) {
+          return "";
+        }
+        return cells[idx].trim();
+      };
+
+      const type = get("type");
+      const target = get("target");
+      if (!target || (type !== "note" && type !== "block")) {
+        continue;
+      }
+
+      const now = new Date().toISOString();
+      const id = get("id") || this.createId("item");
+      const createdAt = get("createdAt") || now;
+      const updatedAt = get("updatedAt") || now;
+
+      const cursorLine = this.parseNullableNumber(get("cursorLine"));
+      const cursorCh = this.parseNullableNumber(get("cursorCh"));
+      const scrollTop = this.parseNullableNumber(get("scrollTop"));
+
+      const readingPosition = {
+        cursor:
+          cursorLine != null && cursorCh != null
+            ? { line: cursorLine, ch: cursorCh }
+            : null,
+        scrollTop
+      };
+
+      if (type === "note") {
+        items.push({
+          id,
+          type: "note",
+          filePath: target,
+          createdAt,
+          updatedAt,
+          readingPosition
+        });
+        continue;
+      }
+
+      const blockMatch = target.match(/^(.*)#\^([^#\^]+)$/);
+      if (!blockMatch) {
+        continue;
+      }
+
+      items.push({
+        id,
+        type: "block",
+        filePath: blockMatch[1],
+        blockId: blockMatch[2],
+        createdAt,
+        updatedAt,
+        readingPosition
+      });
+    }
+
+    return items;
+  }
+
+  private mapHeaderIndex(headers: string[]): Record<TableHeader, number | null> {
+    const normalized = headers.map((h) => h.toLowerCase());
+
+    return {
+      id: this.findHeader(normalized, "id"),
+      type: this.findHeader(normalized, "type"),
+      target: this.findHeader(normalized, "target"),
+      cursorLine: this.findHeader(normalized, "cursorline"),
+      cursorCh: this.findHeader(normalized, "cursorch"),
+      scrollTop: this.findHeader(normalized, "scrolltop"),
+      createdAt: this.findHeader(normalized, "createdat"),
+      updatedAt: this.findHeader(normalized, "updatedat")
+    };
+  }
+
+  private findHeader(headers: string[], name: string): number | null {
+    const index = headers.indexOf(name);
+    return index >= 0 ? index : null;
+  }
+
+  private parseTableRow(line: string): string[] {
+    const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+    const cells: string[] = [];
+    let current = "";
+    let escaped = false;
+
+    for (let i = 0; i < trimmed.length; i += 1) {
+      const ch = trimmed[i];
+
+      if (escaped) {
+        current += ch;
+        escaped = false;
+        continue;
+      }
+
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (ch === "|") {
+        cells.push(current.trim());
+        current = "";
+        continue;
+      }
+
+      current += ch;
+    }
+
+    if (escaped) {
+      current += "\\";
+    }
+
+    cells.push(current.trim());
+    return cells;
+  }
+
+  private parseNullableNumber(value: string): number | null {
+    if (!value) {
+      return null;
+    }
+
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  private toCell(value: number | null | undefined): string {
+    return value == null ? "" : String(value);
+  }
+
+  private escapeCell(value: string): string {
+    return String(value ?? "").replace(/\|/g, "\\|");
+  }
+
+  private escapeFrontmatterValue(value: string): string {
+    const str = String(value ?? "");
+    return /[:#\-]/.test(str) || /\s/.test(str) ? `"${str.replace(/"/g, '\\"')}"` : str;
+  }
+
+  private unquoteFrontmatterValue(value: string): string {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1);
+    }
+
+    return value;
+  }
+
+  private createId(prefix: string): string {
+    const rand = Math.random().toString(36).slice(2, 10);
+    return `${prefix}_${Date.now()}_${rand}`;
   }
 
   private async ensureParentFolders(filePath: string): Promise<void> {
