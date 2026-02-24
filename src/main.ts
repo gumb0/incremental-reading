@@ -47,16 +47,25 @@ export default class IncrementalReadingPlugin extends Plugin {
     await this.loadSettings();
     this.queueStore = new QueueStore(this.app, () => this.settings.queueFolder);
 
-    await this.ensureActiveQueuePath();
-
     this.registerCommands();
     this.registerFileMenuAction();
     this.registerQuickAccess();
 
     this.app.workspace.onLayoutReady(() => {
+      void this.initializeOnLayoutReady();
+    });
+  }
+
+  private async initializeOnLayoutReady(): Promise<void> {
+    await this.ensureActiveQueuePathSafe();
+
+    try {
       this.initializeStatusUi();
       void this.updateStatusUi();
-    });
+    } catch (error) {
+      console.error("Failed to initialize Incremental Reading UI", error);
+      new Notice("Incremental Reading failed to initialize UI.");
+    }
   }
 
   onunload(): void {
@@ -428,6 +437,16 @@ export default class IncrementalReadingPlugin extends Plugin {
 
     await this.setActiveQueuePath(defaultQueuePath);
     return defaultQueuePath;
+  }
+
+  private async ensureActiveQueuePathSafe(): Promise<string | null> {
+    try {
+      return await this.ensureActiveQueuePath();
+    } catch (error) {
+      console.error("Failed to initialize active queue path", error);
+      new Notice("Incremental Reading failed to initialize queue.");
+      return null;
+    }
   }
 
   private async setActiveQueuePath(queuePath: string): Promise<void> {
