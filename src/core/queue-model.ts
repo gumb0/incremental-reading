@@ -10,6 +10,7 @@ export interface QueueMetadata {
   id: string;
   name: string;
   scheduler: QueueSchedulerConfig;
+  nextItemId: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,7 +26,7 @@ export interface ReadingPosition {
 }
 
 export interface QueueItemBase {
-  id: string;
+  id: number;
   filePath: string;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +76,7 @@ export function createQueueState(
       id: createId("queue"),
       name,
       scheduler,
+      nextItemId: 1,
       createdAt: now,
       updatedAt: now
     },
@@ -86,7 +88,7 @@ export function createNoteQueueItem(filePath: string): NoteQueueItem {
   const now = nowIso();
 
   return {
-    id: createId("item"),
+    id: 0,
     type: "note",
     filePath,
     createdAt: now,
@@ -102,7 +104,7 @@ export function createBlockQueueItem(
   const now = nowIso();
 
   return {
-    id: createId("item"),
+    id: 0,
     type: "block",
     filePath,
     blockId,
@@ -166,6 +168,9 @@ function isQueueMetadata(value: unknown): value is QueueMetadata {
   return (
     isString(value.id) &&
     isString(value.name) &&
+    typeof value.nextItemId === "number" &&
+    Number.isInteger(value.nextItemId) &&
+    value.nextItemId >= 1 &&
     isString(value.createdAt) &&
     isString(value.updatedAt)
   );
@@ -177,7 +182,9 @@ function isQueueItem(value: unknown): value is QueueItem {
   }
 
   const common =
-    isString(value.id) &&
+    typeof value.id === "number" &&
+    Number.isInteger(value.id) &&
+    value.id >= 1 &&
     isString(value.filePath) &&
     isString(value.createdAt) &&
     isString(value.updatedAt) &&

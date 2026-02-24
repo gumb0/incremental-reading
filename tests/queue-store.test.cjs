@@ -72,6 +72,7 @@ test("QueueStore create/load/save/delete roundtrip", async () => {
 
   const loadedAgain = await store.loadQueue("Daily");
   assert.equal(loadedAgain.items.length, 1);
+  assert.equal(loadedAgain.items[0].id, 1);
   assert.equal(loadedAgain.items[0].type, "note");
   assert.equal(loadedAgain.items[0].filePath, "notes/today.md");
 
@@ -110,8 +111,11 @@ test("QueueStore add/update/remove item lifecycle", async () => {
   const afterAdd = await store.addItem("Work", item);
   assert.ok(afterAdd);
   assert.equal(afterAdd.items.length, 1);
+  assert.equal(afterAdd.items[0].id, 1);
 
-  const afterUpdate = await store.updateItem("Work", item.id, (existing) => ({
+  const persistedId = afterAdd.items[0].id;
+
+  const afterUpdate = await store.updateItem("Work", persistedId, (existing) => ({
     ...existing,
     readingPosition: { cursor: { line: 4, ch: 2 }, scrollTop: 200 }
   }));
@@ -121,7 +125,7 @@ test("QueueStore add/update/remove item lifecycle", async () => {
     scrollTop: 200
   });
 
-  const afterRemove = await store.removeItem("Work", item.id);
+  const afterRemove = await store.removeItem("Work", persistedId);
   assert.ok(afterRemove);
   assert.equal(afterRemove.items.length, 0);
 });

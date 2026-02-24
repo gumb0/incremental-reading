@@ -182,13 +182,15 @@ export class QueueStore {
       return null;
     }
 
-    if (queue.items.some((existing) => existing.id === item.id)) {
-      new Notice(`Queue item already exists: ${item.id}`);
-      return null;
-    }
-
     const now = new Date().toISOString();
-    queue.items.push({ ...item, updatedAt: now });
+    const nextId = queue.metadata.nextItemId;
+    queue.items.push({
+      ...item,
+      id: nextId,
+      createdAt: now,
+      updatedAt: now
+    });
+    queue.metadata.nextItemId = nextId + 1;
     queue.metadata.updatedAt = now;
 
     const saved = await this.saveQueue(queueNameOrPath, queue);
@@ -197,7 +199,7 @@ export class QueueStore {
 
   async updateItem(
     queueNameOrPath: string,
-    itemId: string,
+    itemId: number,
     updater: (item: QueueItem) => QueueItem
   ): Promise<QueueState | null> {
     const queue = await this.loadQueue(queueNameOrPath);
@@ -222,7 +224,7 @@ export class QueueStore {
 
   async removeItem(
     queueNameOrPath: string,
-    itemId: string
+    itemId: number
   ): Promise<QueueState | null> {
     const queue = await this.loadQueue(queueNameOrPath);
     if (!queue) {
@@ -267,6 +269,7 @@ export class QueueStore {
       `id: ${metadata.id}`,
       `name: ${this.escapeFrontmatterValue(metadata.name)}`,
       `scheduler: ${metadata.scheduler.kind}`,
+      `nextItemId: ${metadata.nextItemId}`,
       `createdAt: ${metadata.createdAt}`,
       `updatedAt: ${metadata.updatedAt}`,
       "---"
@@ -312,6 +315,7 @@ export class QueueStore {
       scheduler: {
         kind: frontmatter.scheduler === "simple" ? "simple" : base.metadata.scheduler.kind
       },
+      nextItemId: frontmatter.nextItemId ?? base.metadata.nextItemId,
       createdAt: frontmatter.createdAt ?? base.metadata.createdAt,
       updatedAt: frontmatter.updatedAt ?? base.metadata.updatedAt
     };
@@ -322,6 +326,13 @@ export class QueueStore {
       return null;
     }
     base.items = parsedItems;
+    const maxId = base.items.reduce(
+      (max, item) => (item.id > max ? item.id : max),
+      0
+    );
+    if (base.metadata.nextItemId <= maxId) {
+      base.metadata.nextItemId = maxId + 1;
+    }
 
     if (!isQueueState(base)) {
       new Notice(`Queue file has invalid schema: ${queuePath}`);
@@ -336,6 +347,7 @@ export class QueueStore {
     id?: string;
     name?: string;
     scheduler?: string;
+    nextItemId?: number;
     createdAt?: string;
     updatedAt?: string;
   } {
@@ -369,6 +381,11 @@ export class QueueStore {
       id: result.id,
       name: result.name,
       scheduler: result.scheduler,
+      nextItemId:
+        Number.isInteger(Number(result.nextItemId)) &&
+        Number(result.nextItemId) >= 1
+          ? Number(result.nextItemId)
+          : undefined,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt
     };
@@ -415,7 +432,10 @@ export class QueueStore {
       }
 
       const now = new Date().toISOString();
-      const id = get("id") || this.createId("item");
+      const parsedId = this.parseNullableNumber(get("id"));
+      const id = parsedId != null && Number.isInteger(parsedId) && parsedId >= 1
+        ? parsedId
+        : this.createItemId(items);
       const createdAt = get("createdAt") || now;
       const updatedAt = get("updatedAt") || now;
 
@@ -532,7 +552,7 @@ export class QueueStore {
     return value == null ? "" : String(value);
   }
 
-  private escapeCell(value: string): string {
+  private escapeCell(value: string | number): string {
     return String(value ?? "").replace(/\|/g, "\\|");
   }
 
@@ -552,9 +572,9 @@ export class QueueStore {
     return value;
   }
 
-  private createId(prefix: string): string {
-    const rand = Math.random().toString(36).slice(2, 10);
-    return `${prefix}_${Date.now()}_${rand}`;
+  private createItemId(items: QueueItem[]): number {
+    const max = items.reduce((acc, item) => (item.id > acc ? item.id : acc), 0);
+    return max + 1;
   }
 
   private async ensureParentFolders(filePath: string): Promise<void> {
