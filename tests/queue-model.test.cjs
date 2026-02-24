@@ -27,13 +27,13 @@ test("createNoteQueueItem and createBlockQueueItem initialize reading state", ()
   assert.equal(note.type, "note");
   assert.equal(note.id, 0);
   assert.equal(note.filePath, "notes/a.md");
-  assert.deepEqual(note.readingPosition, { cursor: null, scrollTop: null });
+  assert.deepEqual(note.readingPosition, { cursor: null });
 
   assert.equal(block.type, "block");
   assert.equal(block.id, 0);
   assert.equal(block.filePath, "notes/b.md");
   assert.equal(block.blockId, "abc123");
-  assert.deepEqual(block.readingPosition, { cursor: null, scrollTop: null });
+  assert.deepEqual(block.readingPosition, { cursor: null });
 });
 
 test("isQueueState accepts valid state and rejects invalid shape", () => {
@@ -48,7 +48,7 @@ test("isQueueState accepts valid state and rejects invalid shape", () => {
   const invalid = {
     schemaVersion: 1,
     metadata: valid.metadata,
-    items: [{ ...createNoteQueueItem("notes/d.md"), readingPosition: { cursor: { line: 1 }, scrollTop: 0 } }]
+    items: [{ ...createNoteQueueItem("notes/d.md"), readingPosition: { cursor: { line: 1 } } }]
   };
 
   assert.equal(isQueueState(invalid), false);

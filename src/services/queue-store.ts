@@ -23,7 +23,6 @@ const TABLE_HEADERS = [
   "target",
   "cursorLine",
   "cursorCh",
-  "scrollTop",
   "createdAt",
   "updatedAt"
 ] as const;
@@ -277,7 +276,7 @@ export class QueueStore {
 
     const header = `| ${TABLE_HEADERS.join(" | ")} |`;
     const separator =
-      "| --- | --- | --- | ---: | ---: | ---: | --- | --- |";
+      "| --- | --- | --- | ---: | ---: | --- | --- |";
 
     const rows = state.items.map((item) => {
       const target =
@@ -287,13 +286,10 @@ export class QueueStore {
 
       const cursorLine = item.readingPosition.cursor?.line;
       const cursorCh = item.readingPosition.cursor?.ch;
-      const scrollTop = item.readingPosition.scrollTop;
 
       return `| ${this.escapeCell(item.id)} | ${item.type} | ${this.escapeCell(
         target
-      )} | ${this.toCell(cursorLine)} | ${this.toCell(cursorCh)} | ${this.toCell(
-        scrollTop
-      )} | ${this.escapeCell(item.createdAt)} | ${this.escapeCell(
+      )} | ${this.toCell(cursorLine)} | ${this.toCell(cursorCh)} | ${this.escapeCell(item.createdAt)} | ${this.escapeCell(
         item.updatedAt
       )} |`;
     });
@@ -441,14 +437,11 @@ export class QueueStore {
 
       const cursorLine = this.parseNullableNumber(get("cursorLine"));
       const cursorCh = this.parseNullableNumber(get("cursorCh"));
-      const scrollTop = this.parseNullableNumber(get("scrollTop"));
-
       const readingPosition = {
         cursor:
           cursorLine != null && cursorCh != null
             ? { line: cursorLine, ch: cursorCh }
-            : null,
-        scrollTop
+            : null
       };
 
       if (type === "note") {
@@ -491,7 +484,6 @@ export class QueueStore {
       target: this.findHeader(normalized, "target"),
       cursorLine: this.findHeader(normalized, "cursorline"),
       cursorCh: this.findHeader(normalized, "cursorch"),
-      scrollTop: this.findHeader(normalized, "scrolltop"),
       createdAt: this.findHeader(normalized, "createdat"),
       updatedAt: this.findHeader(normalized, "updatedat")
     };

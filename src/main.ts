@@ -454,10 +454,10 @@ export default class IncrementalReadingPlugin extends Plugin {
     const position = item.readingPosition;
     if (position.cursor) {
       editor.setCursor(position.cursor);
-    }
-
-    if (position.scrollTop != null) {
-      editor.scrollTo(null, position.scrollTop);
+      editor.scrollIntoView(
+        { from: position.cursor, to: position.cursor },
+        true
+      );
     }
 
     editor.focus();
@@ -499,13 +499,10 @@ export default class IncrementalReadingPlugin extends Plugin {
     }
 
     const cursor = editor.getCursor();
-    const scroll = editor.getScrollInfo();
-
     return {
       filePath: normalizePath(file.path),
       readingPosition: {
-        cursor: { line: cursor.line, ch: cursor.ch },
-        scrollTop: scroll.top
+        cursor: { line: cursor.line, ch: cursor.ch }
       }
     };
   }

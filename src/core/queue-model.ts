@@ -22,7 +22,6 @@ export interface CursorPosition {
 
 export interface ReadingPosition {
   cursor: CursorPosition | null;
-  scrollTop: number | null;
 }
 
 export interface QueueItemBase {
@@ -51,8 +50,7 @@ export interface QueueState {
 }
 
 const DEFAULT_READING_POSITION: ReadingPosition = {
-  cursor: null,
-  scrollTop: null
+  cursor: null
 };
 
 function createId(prefix: string): string {
@@ -133,10 +131,6 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isNullableNumber(value: unknown): value is number | null {
-  return value === null || (typeof value === "number" && Number.isFinite(value));
-}
-
 function isCursorPosition(value: unknown): value is CursorPosition {
   if (!isObject(value)) {
     return false;
@@ -150,10 +144,10 @@ function isReadingPosition(value: unknown): value is ReadingPosition {
     return false;
   }
 
-  const { cursor, scrollTop } = value;
+  const { cursor } = value;
 
   const validCursor = cursor === null || isCursorPosition(cursor);
-  return validCursor && isNullableNumber(scrollTop);
+  return validCursor;
 }
 
 function isQueueMetadata(value: unknown): value is QueueMetadata {

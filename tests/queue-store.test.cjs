@@ -117,12 +117,11 @@ test("QueueStore add/update/remove item lifecycle", async () => {
 
   const afterUpdate = await store.updateItem("Work", persistedId, (existing) => ({
     ...existing,
-    readingPosition: { cursor: { line: 4, ch: 2 }, scrollTop: 200 }
+    readingPosition: { cursor: { line: 4, ch: 2 } }
   }));
   assert.ok(afterUpdate);
   assert.deepEqual(afterUpdate.items[0].readingPosition, {
-    cursor: { line: 4, ch: 2 },
-    scrollTop: 200
+    cursor: { line: 4, ch: 2 }
   });
 
   const afterRemove = await store.removeItem("Work", persistedId);

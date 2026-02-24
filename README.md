@@ -17,7 +17,7 @@ MVP baseline implemented.
 - Add current block to queue
 - Add file to queue from file context menu
 - Queue indicator (desktop status bar + status modal/panel)
-- Persist cursor and scroll position per queue item
+- Persist cursor position per queue item
 
 ## Queue Storage
 
